@@ -30,7 +30,7 @@ export default function Home() {
     const target = searchAddress || address;
     if (!target.trim()) return;
     setLoading(true);
-    router.push(`/results?address=${encodeURIComponent(target.trim())}`);
+    window.location.href = `/results?address=${encodeURIComponent(target.trim())}`;
   };
 
   const handleKeyDown = (e) => {
