@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import Script from 'next/script';
 
 function ScoreCard({ score }) {
   const getColor = (s) => {
@@ -49,9 +50,7 @@ function AnalysisPanel({ analysis }) {
       border: '1px solid #E5E7EB', overflow: 'hidden',
       boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
     }}>
-      <div style={{
-        padding: '24px 32px', borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB',
-      }}>
+      <div style={{ padding: '24px 32px', borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
         <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0A0F1E' }}>🤖 AI Neighborhood Analysis</h2>
         <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>Powered by Claude AI · Based on visual evidence only</p>
       </div>
@@ -75,71 +74,164 @@ function AnalysisPanel({ analysis }) {
   );
 }
 
-function StreetViewPanorama({ images, selectedIndex, onSelect, apiKey }) {
+function getDateFromTimeEntry(t) {
+  // HA is a Date object in current Google Maps API
+  if (t.HA instanceof Date) return t.HA.toISOString();
+  if (t.HA && typeof t.HA === 'object' && t.HA.getFullYear) return t.HA.toISOString();
+  // Try string candidates
+  const candidates = [t.bb, t.kh, t.Ef, t.eg, t.Lg, t.dateString];
+  for (const c of candidates) {
+    if (typeof c === 'string' && /^\d{4}/.test(c)) return c;
+  }
+  // Scan all values
+  for (const val of Object.values(t)) {
+    if (val instanceof Date) return val.toISOString();
+    if (typeof val === 'string' && /^\d{4}-(0[1-9]|1[0-2])/.test(val)) return val;
+  }
+  return '';
+}
+
+function formatDisplayDate(dateStr) {
+  if (!dateStr) return 'Unknown';
+  try {
+    // Handle ISO format like "2007-08-01T06:00:00.000Z"
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
+    // Handle "2007-08" format
+    if (/^\d{4}-\d{2}$/.test(dateStr)) {
+      const [year, month] = dateStr.split('-');
+      const d2 = new Date(parseInt(year), parseInt(month) - 1);
+      return d2.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
+    // Just return the year if nothing else works
+    return dateStr.substring(0, 4);
+  } catch (e) {
+    return dateStr.substring(0, 4);
+  }
+}
+
+function StreetViewTimeline({ lat, lng, apiKey, onImagesReady }) {
   const panoramaRef = useRef(null);
   const panoramaInstanceRef = useRef(null);
-  const [mapsLoaded, setMapsLoaded] = useState(false);
-  const [panoError, setPanoError] = useState(false);
+  const [historicalImages, setHistoricalImages] = useState([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [status, setStatus] = useState('loading');
 
-  // Load Google Maps JS API once
   useEffect(() => {
-    if (window.google && window.google.maps) {
-      setMapsLoaded(true);
+    if (!lat || !lng) return;
+    if (!window.google || !window.google.maps) {
+      setTimeout(() => {
+        if (window.google && window.google.maps) {
+          initPanorama();
+        } else {
+          setStatus('error');
+        }
+      }, 3000);
       return;
     }
-    const existingScript = document.getElementById('google-maps-script');
-    if (existingScript) {
-      existingScript.addEventListener('load', () => setMapsLoaded(true));
-      return;
-    }
-    const script = document.createElement('script');
-    script.id = 'google-maps-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => setMapsLoaded(true);
-    script.onerror = () => setPanoError(true);
-    document.head.appendChild(script);
-  }, [apiKey]);
+    initPanorama();
+  }, [lat, lng]);
 
-  // Initialize panorama once maps is loaded
-  useEffect(() => {
-    if (!mapsLoaded || !panoramaRef.current || !images || images.length === 0) return;
-
-    const currentImage = images[selectedIndex];
-    if (!currentImage?.panoId) {
-      setPanoError(true);
-      return;
-    }
-
-    try {
-      if (!panoramaInstanceRef.current) {
-        panoramaInstanceRef.current = new window.google.maps.StreetViewPanorama(
-          panoramaRef.current,
-          {
-            pano: currentImage.panoId,
-            pov: { heading: 0, pitch: 0 },
-            zoom: 1,
-            addressControl: false,
-            showRoadLabels: false,
-            motionTracking: false,
-            motionTrackingControl: false,
-            fullscreenControl: true,
-            enableCloseButton: false,
-          }
-        );
-      } else {
-        panoramaInstanceRef.current.setPano(currentImage.panoId);
-        panoramaInstanceRef.current.setPov({ heading: 0, pitch: 0 });
+  const initPanorama = () => {
+    const sv = new window.google.maps.StreetViewService();
+    sv.getPanorama({
+      location: { lat, lng },
+      radius: 50,
+      source: window.google.maps.StreetViewSource.OUTDOOR,
+    }, (data, svStatus) => {
+      if (svStatus !== 'OK' || !data) {
+        setStatus('error');
+        return;
       }
-      setPanoError(false);
-    } catch (err) {
-      console.error('Panorama error:', err);
-      setPanoError(true);
-    }
-  }, [mapsLoaded, selectedIndex, images]);
 
-  const currentImage = images?.[selectedIndex];
+      const times = data.time || [];
+      let images = [];
+
+      if (times.length > 1) {
+        const sorted = [...times].sort((a, b) => {
+          const dateA = getDateFromTimeEntry(a);
+          const dateB = getDateFromTimeEntry(b);
+          return dateA.localeCompare(dateB);
+        });
+
+        const indices = [];
+        if (sorted.length <= 4) {
+          sorted.forEach((_, i) => indices.push(i));
+        } else {
+          indices.push(0);
+          indices.push(Math.floor(sorted.length * 0.33));
+          indices.push(Math.floor(sorted.length * 0.66));
+          indices.push(sorted.length - 1);
+        }
+
+        images = indices.map(i => {
+          const t = sorted[i];
+          const panoId = t.pano;
+          const dateStr = getDateFromTimeEntry(t);
+          const displayDate = formatDisplayDate(dateStr);
+          return {
+            panoId,
+            date: dateStr,
+            displayDate,
+            year: dateStr ? parseInt(dateStr.substring(0, 4)) : 'Unknown',
+            url: `https://maps.googleapis.com/maps/api/streetview?size=800x500&pano=${panoId}&fov=90&pitch=0&key=${apiKey}`,
+          };
+        });
+
+        setStatus('historical');
+      } else {
+        const panoId = data.location.pano;
+        const dateStr = data.imageDate || '';
+        const year = dateStr ? parseInt(dateStr.substring(0, 4)) : 2024;
+        const headings = [0, 90, 180, 270];
+        const labels = ['North', 'East', 'South', 'West'];
+        images = headings.map((heading, i) => ({
+          panoId,
+          date: dateStr,
+          displayDate: `${year} · ${labels[i]}`,
+          year,
+          heading,
+          url: `https://maps.googleapis.com/maps/api/streetview?size=800x500&pano=${panoId}&fov=90&heading=${heading}&pitch=0&key=${apiKey}`,
+        }));
+        setStatus('angles');
+      }
+
+      setHistoricalImages(images);
+      if (onImagesReady) onImagesReady(images);
+    });
+  };
+
+  useEffect(() => {
+    if (!panoramaRef.current || historicalImages.length === 0) return;
+    if (!window.google || !window.google.maps) return;
+
+    const current = historicalImages[selectedIndex];
+    if (!current?.panoId) return;
+
+    if (!panoramaInstanceRef.current) {
+      panoramaInstanceRef.current = new window.google.maps.StreetViewPanorama(
+        panoramaRef.current,
+        {
+          pano: current.panoId,
+          pov: { heading: current.heading || 0, pitch: 0 },
+          zoom: 1,
+          addressControl: false,
+          showRoadLabels: false,
+          motionTracking: false,
+          motionTrackingControl: false,
+          fullscreenControl: true,
+          enableCloseButton: false,
+        }
+      );
+    } else {
+      panoramaInstanceRef.current.setPano(current.panoId);
+      panoramaInstanceRef.current.setPov({ heading: current.heading || 0, pitch: 0 });
+    }
+  }, [selectedIndex, historicalImages]);
+
+  const current = historicalImages[selectedIndex];
 
   return (
     <div style={{
@@ -147,109 +239,106 @@ function StreetViewPanorama({ images, selectedIndex, onSelect, apiKey }) {
       border: '1px solid #E5E7EB', overflow: 'hidden',
       marginBottom: '32px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
     }}>
-
-      {/* Panorama Viewer */}
       <div style={{ position: 'relative', backgroundColor: '#111827', height: 'clamp(300px, 55vw, 520px)' }}>
+        <div ref={panoramaRef} style={{
+          width: '100%', height: '100%',
+          display: historicalImages.length > 0 ? 'block' : 'none',
+        }} />
 
-        {/* Interactive panorama div */}
-        <div
-          ref={panoramaRef}
-          style={{
-            width: '100%',
-            height: '100%',
-            display: (mapsLoaded && !panoError && currentImage?.panoId) ? 'block' : 'none',
-          }}
-        />
-
-        {/* Fallback static image */}
-        {(!mapsLoaded || panoError || !currentImage?.panoId) && (
-          <img
-            src={currentImage?.url}
-            alt={`Street View ${currentImage?.year}`}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        )}
-
-        {/* Loading overlay */}
-        {!mapsLoaded && !panoError && (
+        {status === 'loading' && (
           <div style={{
             position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            backgroundColor: '#111827',
           }}>
             <div style={{
-              width: '36px', height: '36px',
-              border: '4px solid rgba(255,255,255,0.2)',
-              borderTop: '4px solid #ffffff',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
+              width: '40px', height: '40px',
+              border: '4px solid rgba(255,255,255,0.15)',
+              borderTop: '4px solid #3B82F6', borderRadius: '50%',
+              animation: 'spin 1s linear infinite', marginBottom: '16px',
             }} />
+            <p style={{ color: '#9CA3AF', fontSize: '14px' }}>Loading Street View...</p>
           </div>
         )}
 
-        {/* Year badge */}
-        <div style={{
-          position: 'absolute', top: '16px', left: '16px',
-          backgroundColor: 'rgba(0,0,0,0.75)', color: '#ffffff',
-          padding: '6px 14px', borderRadius: '20px',
-          fontSize: '14px', fontWeight: '600', backdropFilter: 'blur(4px)',
-          zIndex: 10, pointerEvents: 'none',
-        }}>
-          {currentImage?.date || currentImage?.year}
-        </div>
-
-        {/* Mode badge */}
-        {currentImage?.panoId && mapsLoaded && !panoError && (
+        {status === 'error' && (
           <div style={{
-            position: 'absolute', top: '16px', right: '16px',
-            backgroundColor: 'rgba(59,130,246,0.85)', color: '#ffffff',
-            padding: '4px 10px', borderRadius: '12px',
-            fontSize: '12px', fontWeight: '500', backdropFilter: 'blur(4px)',
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: '#111827',
+          }}>
+            <p style={{ color: '#9CA3AF', fontSize: '16px' }}>Unable to load Street View for this location.</p>
+          </div>
+        )}
+
+        {current && (
+          <div style={{
+            position: 'absolute', top: '16px', left: '16px',
+            backgroundColor: 'rgba(0,0,0,0.75)', color: '#ffffff',
+            padding: '6px 14px', borderRadius: '20px',
+            fontSize: '14px', fontWeight: '600',
             zIndex: 10, pointerEvents: 'none',
+          }}>
+            {current.displayDate || current.year}
+          </div>
+        )}
+
+        {status === 'historical' && (
+          <div style={{
+            position: 'absolute', top: '16px', right: '60px',
+            backgroundColor: 'rgba(34,197,94,0.85)', color: '#ffffff',
+            padding: '4px 10px', borderRadius: '12px',
+            fontSize: '12px', fontWeight: '600',
+            zIndex: 10, pointerEvents: 'none',
+          }}>
+            ✅ Real historical imagery
+          </div>
+        )}
+
+        {historicalImages.length > 0 && (
+          <div style={{
+            position: 'absolute', bottom: '16px', left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(0,0,0,0.6)', color: '#ffffff',
+            padding: '4px 12px', borderRadius: '12px',
+            fontSize: '12px', zIndex: 10, pointerEvents: 'none',
           }}>
             🖱 Drag to look around
           </div>
         )}
       </div>
 
-      {/* Year Selector Thumbnails */}
-      <div style={{
-        display: 'flex', padding: '16px', gap: '12px',
-        overflowX: 'auto', backgroundColor: '#F9FAFB',
-        borderTop: '1px solid #E5E7EB',
-      }}>
-        {images?.map((img, idx) => (
-          <button
-            key={idx}
-            onClick={() => onSelect(idx)}
-            style={{
+      {historicalImages.length > 0 && (
+        <div style={{
+          display: 'flex', padding: '16px', gap: '12px',
+          overflowX: 'auto', backgroundColor: '#F9FAFB',
+          borderTop: '1px solid #E5E7EB',
+        }}>
+          {historicalImages.map((img, idx) => (
+            <button key={idx} onClick={() => setSelectedIndex(idx)} style={{
               flex: '1', minWidth: '120px', padding: '0',
               border: selectedIndex === idx ? '2px solid #3B82F6' : '2px solid #E5E7EB',
               borderRadius: '10px', overflow: 'hidden',
               cursor: 'pointer', backgroundColor: 'transparent',
               transition: 'all 0.2s ease',
-            }}
-          >
-            <img
-              src={img.url}
-              alt={`${img.date || img.year}`}
-              style={{
-                width: '100%', height: '80px', objectFit: 'cover',
-                display: 'block', opacity: selectedIndex === idx ? 1 : 0.6,
-              }}
-            />
-            <div style={{
-              padding: '6px',
-              backgroundColor: selectedIndex === idx ? '#3B82F6' : '#ffffff',
-              color: selectedIndex === idx ? '#ffffff' : '#374151',
-              fontSize: '13px', fontWeight: '600', textAlign: 'center',
             }}>
-              {img.date || img.year}
-            </div>
-          </button>
-        ))}
-      </div>
-
+              <img src={img.url} alt={img.displayDate} style={{
+                width: '100%', height: '80px', objectFit: 'cover',
+                display: 'block', opacity: selectedIndex === idx ? 1 : 0.65,
+              }} />
+              <div style={{
+                padding: '6px',
+                backgroundColor: selectedIndex === idx ? '#3B82F6' : '#ffffff',
+                color: selectedIndex === idx ? '#ffffff' : '#374151',
+                fontSize: '13px', fontWeight: '600', textAlign: 'center',
+              }}>
+                {img.displayDate || img.year}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
       <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
     </div>
   );
@@ -262,17 +351,18 @@ function ResultsContent() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedImage, setSelectedImage] = useState(0);
+  const [images, setImages] = useState([]);
   const [analysis, setAnalysis] = useState(null);
   const [score, setScore] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
+  const [mapsReady, setMapsReady] = useState(false);
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
   useEffect(() => {
     if (!address) return;
-    const fetchImages = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         const res = await fetch(`/api/streetview?address=${encodeURIComponent(address)}`);
@@ -285,18 +375,18 @@ function ResultsContent() {
         setLoading(false);
       }
     };
-    fetchImages();
+    fetchData();
   }, [address]);
 
   const runAnalysis = async () => {
-    if (!data) return;
+    if (!images || images.length === 0) return;
     try {
       setAnalyzing(true);
       setAnalysisError(null);
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: data.images, address: data.address || address }),
+        body: JSON.stringify({ images, address: data?.address || address }),
       });
       const json = await res.json();
       if (!res.ok) { setAnalysisError(json.error || 'Analysis failed.'); return; }
@@ -351,6 +441,12 @@ function ResultsContent() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', fontFamily: 'Inter, sans-serif' }}>
 
+      <Script
+        id="google-maps-script"
+        src={`https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly`}
+        onLoad={() => setMapsReady(true)}
+      />
+
       {/* Header */}
       <div style={{
         backgroundColor: '#0A0F1E', padding: '16px 32px',
@@ -375,32 +471,43 @@ function ResultsContent() {
         <h1 style={{ color: '#ffffff', fontSize: 'clamp(20px, 3vw, 32px)', fontWeight: '700', marginBottom: '8px' }}>
           {data?.address}
         </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <p style={{ color: '#6B7280', fontSize: '14px' }}>
-            {data?.images?.length} Street View captures ·{' '}
-            {data?.mode === 'historical' ? '✅ Historical imagery from different years' : data?.mode === 'angles' ? '📍 Multiple angles of current view' : 'Date-targeted imagery'}
-          </p>
-        </div>
       </div>
 
       {/* Main Content */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
 
-        {/* Score Card */}
         {score && <ScoreCard score={score} />}
 
-        {/* Interactive Street View */}
-        {data?.images && (
-          <StreetViewPanorama
-            images={data.images}
-            selectedIndex={selectedImage}
-            onSelect={setSelectedImage}
+        {data && mapsReady && (
+          <StreetViewTimeline
+            lat={data.lat}
+            lng={data.lng}
             apiKey={apiKey}
+            onImagesReady={(imgs) => setImages(imgs)}
           />
         )}
 
-        {/* Analyze Button */}
-        {!analysis && !analyzing && (
+        {data && !mapsReady && (
+          <div style={{
+            backgroundColor: '#ffffff', borderRadius: '16px',
+            border: '1px solid #E5E7EB', overflow: 'hidden',
+            marginBottom: '32px', height: '400px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{
+                width: '40px', height: '40px',
+                border: '4px solid rgba(59,130,246,0.2)',
+                borderTop: '4px solid #3B82F6', borderRadius: '50%',
+                animation: 'spin 1s linear infinite', margin: '0 auto 16px',
+              }} />
+              <p style={{ color: '#6B7280', fontSize: '14px' }}>Loading maps...</p>
+            </div>
+            <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {!analysis && !analyzing && images.length > 0 && (
           <div style={{
             backgroundColor: '#ffffff', borderRadius: '16px',
             border: '1px solid #E5E7EB', padding: '40px',
@@ -411,32 +518,24 @@ function ResultsContent() {
             <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0A0F1E', marginBottom: '8px' }}>
               Ready to analyze this neighborhood
             </h2>
-            <p style={{ color: '#6B7280', fontSize: '15px', marginBottom: '24px', maxWidth: '440px', margin: '0 auto 24px' }}>
-              Claude AI will review all {data?.images?.length} Street View images and generate a full commercial real estate report.
+            <p style={{ color: '#6B7280', fontSize: '15px', marginBottom: '24px' }}>
+              Claude AI will review all {images.length} Street View images and generate a full CRE report.
             </p>
-            <button
-              onClick={runAnalysis}
-              style={{
-                padding: '14px 32px', backgroundColor: '#3B82F6', color: '#ffffff',
-                border: 'none', borderRadius: '10px', cursor: 'pointer',
-                fontSize: '16px', fontWeight: '600', fontFamily: 'Inter, sans-serif',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#2563EB'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = '#3B82F6'}
-            >
+            <button onClick={runAnalysis} style={{
+              padding: '14px 32px', backgroundColor: '#3B82F6', color: '#ffffff',
+              border: 'none', borderRadius: '10px', cursor: 'pointer',
+              fontSize: '16px', fontWeight: '600', fontFamily: 'Inter, sans-serif',
+            }}>
               Run AI Analysis →
             </button>
           </div>
         )}
 
-        {/* Analyzing spinner */}
         {analyzing && (
           <div style={{
             backgroundColor: '#ffffff', borderRadius: '16px',
             border: '1px solid #E5E7EB', padding: '48px',
-            textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-            marginBottom: '32px',
+            textAlign: 'center', marginBottom: '32px',
           }}>
             <div style={{
               width: '40px', height: '40px',
@@ -448,13 +547,12 @@ function ResultsContent() {
               Analyzing neighborhood changes...
             </p>
             <p style={{ color: '#9CA3AF', fontSize: '14px' }}>
-              Claude AI is reviewing all {data?.images?.length} images. This takes about 20 seconds.
+              Claude AI is reviewing all {images.length} images. This takes about 20 seconds.
             </p>
             <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
           </div>
         )}
 
-        {/* Analysis error */}
         {analysisError && (
           <div style={{
             backgroundColor: '#FEF2F2', borderRadius: '16px',
