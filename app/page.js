@@ -1,30 +1,34 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
-const EXAMPLE_ADDRESSES = [
+const EXAMPLES = [
   {
-    label: 'Hudson Yards, New York',
+    label: 'Hudson Yards',
+    sublabel: 'New York, NY',
     address: '30 Hudson Yards, New York, NY',
-    description: 'Empty rail yards → massive development',
+    tag: 'Dramatic transformation',
+    tagColor: '#22C55E',
   },
   {
-    label: 'The Wharf, Washington DC',
+    label: 'The Wharf',
+    sublabel: 'Washington, DC',
     address: '800 Wharf St SW, Washington, DC',
-    description: 'Industrial waterfront → luxury destination',
+    tag: 'Industrial → luxury',
+    tagColor: '#3B82F6',
   },
   {
     label: 'Midtown Detroit',
+    sublabel: 'Detroit, MI',
     address: '4201 Woodward Ave, Detroit, MI',
-    description: 'Abandoned blocks → urban revival',
+    tag: 'Urban revival',
+    tagColor: '#F59E0B',
   },
 ];
 
 export default function Home() {
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleSearch = (searchAddress) => {
     const target = searchAddress || address;
@@ -38,11 +42,11 @@ export default function Home() {
   };
 
   return (
-    <main style={{ minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
+    <main style={{ fontFamily: "'DM Sans', sans-serif", minHeight: '100vh' }}>
 
-      {/* HERO SECTION */}
+      {/* HERO */}
       <section style={{
-        backgroundColor: '#0A0F1E',
+        background: 'linear-gradient(160deg, #060B18 0%, #0A1020 50%, #0D1428 100%)',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
@@ -53,253 +57,381 @@ export default function Home() {
         overflow: 'hidden',
       }}>
 
-        {/* Background glow effect */}
+        {/* Grid background */}
         <div style={{
           position: 'absolute',
-          top: '30%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '600px',
-          height: '600px',
-          background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)',
+          inset: 0,
+          backgroundImage: `
+            linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px)
+          `,
+          backgroundSize: '60px 60px',
           pointerEvents: 'none',
         }} />
 
-        {/* Logo / Brand */}
-        <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            backgroundColor: '#3B82F6',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '20px',
-          }}>⏱</div>
-          <span style={{ color: '#ffffff', fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>
-            TimeBlock
-          </span>
-        </div>
-
-        {/* Headline */}
-        <h1 style={{
-          color: '#ffffff',
-          fontSize: 'clamp(32px, 5vw, 64px)',
-          fontWeight: '800',
-          textAlign: 'center',
-          lineHeight: '1.1',
-          marginBottom: '16px',
-          letterSpacing: '-1px',
-          maxWidth: '800px',
-        }}>
-          See how any neighborhood<br />
-          <span style={{ color: '#3B82F6' }}>has changed over time</span>
-        </h1>
-
-        {/* Subheadline */}
-        <p style={{
-          color: '#9CA3AF',
-          fontSize: 'clamp(16px, 2vw, 20px)',
-          textAlign: 'center',
-          marginBottom: '48px',
-          maxWidth: '520px',
-          lineHeight: '1.6',
-        }}>
-          Type any address. Get a visual timeline of Street View history and an AI-powered neighborhood analysis.
-        </p>
-
-        {/* Search Bar */}
+        {/* Glow orb */}
         <div style={{
-          width: '100%',
-          maxWidth: '620px',
-          display: 'flex',
-          gap: '12px',
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-        }}>
-          <input
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Enter any address, e.g. 123 Main St, Chicago, IL"
-            style={{
-              flex: '1',
-              minWidth: '280px',
-              padding: '16px 20px',
-              fontSize: '16px',
-              borderRadius: '12px',
-              border: '1px solid rgba(255,255,255,0.1)',
-              backgroundColor: 'rgba(255,255,255,0.06)',
-              color: '#ffffff',
-              outline: 'none',
-              fontFamily: 'Inter, sans-serif',
-            }}
-          />
-          <button
-            onClick={() => handleSearch()}
-            disabled={loading || !address.trim()}
-            style={{
-              padding: '16px 28px',
-              fontSize: '16px',
-              fontWeight: '600',
-              backgroundColor: loading ? '#1D4ED8' : '#3B82F6',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontFamily: 'Inter, sans-serif',
-              whiteSpace: 'nowrap',
-              opacity: !address.trim() ? 0.5 : 1,
-              transition: 'all 0.2s ease',
-            }}
-          >
-            {loading ? 'Loading...' : 'Analyze →'}
-          </button>
-        </div>
+          position: 'absolute',
+          top: '20%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '800px',
+          height: '800px',
+          background: 'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 65%)',
+          pointerEvents: 'none',
+        }} />
 
-        {/* Example Addresses */}
-        <div style={{ marginTop: '48px', textAlign: 'center' }}>
-          <p style={{ color: '#6B7280', fontSize: '13px', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            Try a demo address
-          </p>
+        {/* Nav */}
+        <div style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0,
+          padding: '20px 40px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid rgba(255,255,255,0.04)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '34px', height: '34px',
+              background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+              borderRadius: '9px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '16px',
+              boxShadow: '0 0 20px rgba(59,130,246,0.3)',
+            }}>⏱</div>
+            <span style={{
+              color: '#fff',
+              fontSize: '17px',
+              fontWeight: '600',
+              letterSpacing: '-0.3px',
+            }}>TimeBlock</span>
+          </div>
           <div style={{
-            display: 'flex',
-            gap: '12px',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
+            fontSize: '12px',
+            color: 'rgba(255,255,255,0.25)',
+            fontFamily: "'DM Mono', monospace",
+            letterSpacing: '1px',
           }}>
-            {EXAMPLE_ADDRESSES.map((example) => (
-              <button
-                key={example.address}
-                onClick={() => handleSearch(example.address)}
-                style={{
-                  padding: '10px 18px',
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
-                  color: '#D1D5DB',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  fontFamily: 'Inter, sans-serif',
-                  transition: 'all 0.2s ease',
-                  textAlign: 'left',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(59,130,246,0.15)';
-                  e.currentTarget.style.borderColor = 'rgba(59,130,246,0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-                }}
-              >
-                <div style={{ fontWeight: '600', marginBottom: '2px' }}>{example.label}</div>
-                <div style={{ fontSize: '12px', color: '#6B7280' }}>{example.description}</div>
-              </button>
-            ))}
+            NEIGHBORHOOD INTELLIGENCE
           </div>
         </div>
 
-        {/* Scroll indicator */}
+        {/* Hero content */}
+        <div style={{
+          textAlign: 'center',
+          maxWidth: '780px',
+          position: 'relative',
+          zIndex: 1,
+          animation: 'fadeUp 0.8s ease both',
+        }}>
+
+          {/* Tag */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: 'rgba(59,130,246,0.1)',
+            border: '1px solid rgba(59,130,246,0.2)',
+            borderRadius: '20px',
+            padding: '6px 14px',
+            marginBottom: '32px',
+          }}>
+            <div style={{
+              width: '6px', height: '6px',
+              backgroundColor: '#3B82F6',
+              borderRadius: '50%',
+              animation: 'pulse 2s ease infinite',
+            }} />
+            <span style={{
+              color: '#60A5FA',
+              fontSize: '12px',
+              fontWeight: '500',
+              letterSpacing: '0.5px',
+              fontFamily: "'DM Mono', monospace",
+            }}>
+              POWERED BY GOOGLE STREET VIEW + CLAUDE AI
+            </span>
+          </div>
+
+          <h1 style={{
+            fontSize: 'clamp(40px, 6vw, 76px)',
+            fontWeight: '700',
+            color: '#ffffff',
+            lineHeight: '1.05',
+            letterSpacing: '-2px',
+            marginBottom: '20px',
+          }}>
+            See how any block<br />
+            <span style={{
+              background: 'linear-gradient(135deg, #60A5FA 0%, #3B82F6 50%, #818CF8 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              changed over time
+            </span>
+          </h1>
+
+          <p style={{
+            color: 'rgba(255,255,255,0.45)',
+            fontSize: 'clamp(16px, 2vw, 19px)',
+            lineHeight: '1.65',
+            marginBottom: '48px',
+            maxWidth: '520px',
+            margin: '0 auto 48px',
+          }}>
+            Enter any address. Get a visual timeline of Street View history and an AI-powered commercial real estate analysis.
+          </p>
+
+          {/* Search */}
+          <div style={{
+            display: 'flex',
+            gap: '10px',
+            maxWidth: '600px',
+            margin: '0 auto 48px',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+          }}>
+            <input
+              type="text"
+              value={address}
+              onChange={e => setAddress(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="123 Main St, Chicago, IL"
+              style={{
+                flex: '1',
+                minWidth: '260px',
+                padding: '16px 20px',
+                fontSize: '15px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.08)',
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                color: '#ffffff',
+                outline: 'none',
+                fontFamily: "'DM Sans', sans-serif",
+                backdropFilter: 'blur(10px)',
+                transition: 'border-color 0.2s ease',
+              }}
+              onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.5)'}
+              onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+            />
+            <button
+              onClick={() => handleSearch()}
+              disabled={loading || !address.trim()}
+              style={{
+                padding: '16px 28px',
+                fontSize: '15px',
+                fontWeight: '600',
+                background: loading ? 'rgba(59,130,246,0.5)' : 'linear-gradient(135deg, #3B82F6, #2563EB)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: loading ? 'wait' : 'pointer',
+                fontFamily: "'DM Sans', sans-serif",
+                whiteSpace: 'nowrap',
+                opacity: !address.trim() ? 0.4 : 1,
+                transition: 'all 0.2s ease',
+                boxShadow: address.trim() ? '0 0 24px rgba(59,130,246,0.3)' : 'none',
+              }}
+            >
+              {loading ? 'Loading...' : 'Analyze →'}
+            </button>
+          </div>
+
+          {/* Examples */}
+          <div>
+            <p style={{
+              color: 'rgba(255,255,255,0.2)',
+              fontSize: '11px',
+              letterSpacing: '1.5px',
+              fontFamily: "'DM Mono', monospace",
+              marginBottom: '14px',
+            }}>
+              TRY A DEMO
+            </p>
+            <div style={{
+              display: 'flex',
+              gap: '10px',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+            }}>
+              {EXAMPLES.map(ex => (
+                <button
+                  key={ex.address}
+                  onClick={() => handleSearch(ex.address)}
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontFamily: "'DM Sans', sans-serif",
+                    textAlign: 'left',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.backgroundColor = 'rgba(59,130,246,0.1)';
+                    e.currentTarget.style.borderColor = 'rgba(59,130,246,0.3)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)';
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                  }}
+                >
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff', marginBottom: '3px' }}>
+                    {ex.label}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>
+                    {ex.sublabel}
+                  </div>
+                  <div style={{
+                    marginTop: '6px',
+                    fontSize: '10px',
+                    color: ex.tagColor,
+                    fontFamily: "'DM Mono', monospace",
+                    letterSpacing: '0.5px',
+                  }}>
+                    {ex.tag}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Scroll hint */}
         <div style={{
           position: 'absolute',
-          bottom: '32px',
+          bottom: '28px',
           left: '50%',
           transform: 'translateX(-50%)',
-          color: '#374151',
-          fontSize: '13px',
+          color: 'rgba(255,255,255,0.15)',
+          fontSize: '12px',
+          fontFamily: "'DM Mono', monospace",
+          letterSpacing: '1px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: '6px',
         }}>
-          <span>scroll to learn more</span>
-          <span>↓</span>
+          SCROLL ↓
         </div>
       </section>
 
-      {/* HOW IT WORKS SECTION */}
+      {/* HOW IT WORKS */}
       <section style={{
-        backgroundColor: '#ffffff',
+        backgroundColor: '#F8FAFC',
         padding: '100px 24px',
-        textAlign: 'center',
       }}>
-        <p style={{ color: '#3B82F6', fontWeight: '600', fontSize: '14px', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px' }}>
-          How it works
-        </p>
-        <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: '800', color: '#0A0F1E', marginBottom: '16px', letterSpacing: '-0.5px' }}>
-          Neighborhood intelligence in seconds
-        </h2>
-        <p style={{ color: '#6B7280', fontSize: '18px', maxWidth: '520px', margin: '0 auto 64px', lineHeight: '1.6' }}>
-          We pull real historical Street View imagery and run it through AI trained on commercial real estate analysis.
-        </p>
-
-        <div style={{
-          display: 'flex',
-          gap: '32px',
-          justifyContent: 'center',
-          flexWrap: 'wrap',
-          maxWidth: '1000px',
-          margin: '0 auto',
-        }}>
-          {[
-            { step: '01', icon: '📍', title: 'Enter any address', desc: 'Type a US address and our system finds every Street View capture available for that location.' },
-            { step: '02', icon: '🕐', title: 'Visual time machine', desc: 'See 4 images spanning years of history — from as far back as 2007 up to today.' },
-            { step: '03', icon: '🤖', title: 'AI neighborhood analysis', desc: 'Claude AI analyzes every image and writes a detailed CRE report covering development, retail, and trajectory.' },
-            { step: '04', icon: '📄', title: 'Export your report', desc: 'Download a professional PDF with all images, analysis, and a Neighborhood Change Score.' },
-          ].map((item) => (
-            <div key={item.step} style={{
-              flex: '1',
-              minWidth: '220px',
-              maxWidth: '240px',
-              padding: '32px 24px',
-              backgroundColor: '#F9FAFB',
-              borderRadius: '16px',
-              border: '1px solid #E5E7EB',
-              textAlign: 'left',
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: '64px' }}>
+            <p style={{
+              color: '#3B82F6',
+              fontSize: '11px',
+              fontWeight: '600',
+              letterSpacing: '2px',
+              fontFamily: "'DM Mono', monospace",
+              marginBottom: '12px',
             }}>
-              <div style={{ fontSize: '32px', marginBottom: '16px' }}>{item.icon}</div>
-              <div style={{ color: '#3B82F6', fontSize: '12px', fontWeight: '700', letterSpacing: '1px', marginBottom: '8px' }}>
-                STEP {item.step}
+              HOW IT WORKS
+            </p>
+            <h2 style={{
+              fontSize: 'clamp(28px, 4vw, 48px)',
+              fontWeight: '700',
+              color: '#0F172A',
+              letterSpacing: '-1px',
+              lineHeight: '1.1',
+            }}>
+              Neighborhood intelligence<br />in under a minute
+            </h2>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '24px',
+          }}>
+            {[
+              { num: '01', icon: '📍', title: 'Enter any address', desc: 'Type any US address. Our system finds every Street View capture available.' },
+              { num: '02', icon: '🕐', title: 'Visual time machine', desc: 'See images spanning years of history — from as far back as 2007 to today.' },
+              { num: '03', icon: '🤖', title: 'AI CRE analysis', desc: 'Claude AI analyzes every image and writes a detailed neighborhood report.' },
+              { num: '04', icon: '📄', title: 'Export your report', desc: 'Download a professional PDF with images, analysis, and a Change Score.' },
+            ].map(item => (
+              <div key={item.num} style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                padding: '28px',
+                border: '1px solid #E2E8F0',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+              }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
+                }}
+              >
+                <div style={{ fontSize: '28px', marginBottom: '16px' }}>{item.icon}</div>
+                <div style={{
+                  fontSize: '11px',
+                  color: '#3B82F6',
+                  fontFamily: "'DM Mono', monospace",
+                  letterSpacing: '1px',
+                  marginBottom: '8px',
+                }}>STEP {item.num}</div>
+                <h3 style={{
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  color: '#0F172A',
+                  marginBottom: '8px',
+                  letterSpacing: '-0.3px',
+                }}>{item.title}</h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#64748B',
+                  lineHeight: '1.6',
+                }}>{item.desc}</p>
               </div>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0A0F1E', marginBottom: '8px' }}>
-                {item.title}
-              </h3>
-              <p style={{ fontSize: '14px', color: '#6B7280', lineHeight: '1.6' }}>
-                {item.desc}
-              </p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
       {/* FOOTER */}
       <footer style={{
-        backgroundColor: '#0A0F1E',
+        background: 'linear-gradient(160deg, #060B18 0%, #0A1020 100%)',
         padding: '40px 24px',
         textAlign: 'center',
-        color: '#374151',
-        fontSize: '14px',
+        borderTop: '1px solid rgba(255,255,255,0.04)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
           <div style={{
-            width: '24px',
-            height: '24px',
-            backgroundColor: '#3B82F6',
-            borderRadius: '6px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '12px',
+            width: '26px', height: '26px',
+            background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+            borderRadius: '7px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '13px',
           }}>⏱</div>
-          <span style={{ color: '#6B7280', fontWeight: '600' }}>TimeBlock</span>
+          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', fontWeight: '500' }}>TimeBlock</span>
         </div>
-        <p>Powered by Google Street View & Claude AI</p>
+        <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '12px', fontFamily: "'DM Mono', monospace" }}>
+          Powered by Google Street View & Claude AI
+        </p>
       </footer>
 
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(24px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
     </main>
   );
 }

@@ -8,7 +8,7 @@ export async function POST(request) {
 
     const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
-    // Step 1: Fetch each image and convert to base64
+    // Fetch each image and convert to base64
     const imageContents = [];
 
     for (const img of images) {
@@ -21,12 +21,12 @@ export async function POST(request) {
         const contentType = imageRes.headers.get('content-type') || 'image/jpeg';
 
         imageContents.push({
-          year: img.year,
+          year: img.displayDate || img.year,
           base64,
           contentType,
         });
       } catch (err) {
-        console.error(`Failed to fetch image for year ${img.year}:`, err);
+        console.error(`Failed to fetch image:`, err);
       }
     }
 
@@ -34,16 +34,14 @@ export async function POST(request) {
       return Response.json({ error: 'Could not load images for analysis' }, { status: 500 });
     }
 
-    // Step 2: Build the message content for Claude
+    // Build message content for Claude
     const messageContent = [];
 
-    // Add intro text
     messageContent.push({
       type: 'text',
-      text: `You are analyzing Google Street View images of: ${address}\n\nThe following ${imageContents.length} images show this location across different time periods: ${imageContents.map(i => i.year).join(', ')}.\n\nPlease analyze these images carefully:`,
+      text: `Analyze these ${imageContents.length} Google Street View images of: ${address}\n\nTime periods shown: ${imageContents.map(i => i.year).join(', ')}`,
     });
 
-    // Add each image with its year label
     for (const img of imageContents) {
       messageContent.push({
         type: 'text',
@@ -59,7 +57,6 @@ export async function POST(request) {
       });
     }
 
-    // Step 3: Send to Claude Haiku with the analysis prompt
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -69,46 +66,32 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
-        system: `You are an expert commercial real estate analyst specializing in neighborhood trend analysis and market intelligence. You have been given a series of Google Street View images of the same address taken in different years.
+        max_tokens: 1500,
+        system: `You are a commercial real estate analyst. Analyze the provided Google Street View images of the same address taken in different years.
 
-Your job is to analyze these images and produce a structured report with the following sections:
+Write a concise report with these 5 sections. Use plain text only - no markdown, no bold, no tables, no bullet points. Just clean paragraphs with section headers in ALL CAPS.
 
-1. CONSTRUCTION & DEVELOPMENT
-Describe any new buildings, demolitions, construction activity, or development projects visible near the address across the timeline. Note approximate timing based on which images show changes.
+CONSTRUCTION AND DEVELOPMENT
+One short paragraph describing any new buildings, demolitions, or development visible across the timeline.
 
-2. RETAIL & BUSINESS ACTIVITY
-Identify signs of retail vacancy (empty storefronts, for lease signs, boarded windows) or business growth (new signage, activity, filled spaces). Note turnover patterns if visible.
+RETAIL AND BUSINESS ACTIVITY
+One short paragraph on storefront vacancy, new businesses, or commercial changes visible.
 
-3. GENTRIFICATION & NEIGHBORHOOD TRAJECTORY
-Look for signals of gentrification (new luxury development, renovation of older buildings, changing streetscape quality, new amenities) or decline (deterioration, vacancy, reduced maintenance). Be specific about what visual evidence supports your conclusion.
+NEIGHBORHOOD TRAJECTORY
+One short paragraph on gentrification signals, decline, or stability based only on visual evidence.
 
-4. INFRASTRUCTURE & STREETSCAPE
-Note changes to roads, sidewalks, street furniture, lighting, signage, landscaping, bike lanes, or any public realm improvements or degradation.
+INFRASTRUCTURE AND STREETSCAPE
+One short paragraph on changes to roads, sidewalks, lighting, trees, or street furniture.
 
-5. OVERALL NARRATIVE
-Write 2-3 sentences summarizing the story of this location. What has happened here? Where does it appear to be heading?
+OVERALL NARRATIVE
+Two sentences maximum summarizing what happened here and where it appears to be heading.
 
-6. NEIGHBORHOOD CHANGE SCORE
-Give this location a score from 1 to 10 based on the trajectory of change you observe:
-- 1-3: Declining or deteriorating
-- 4-6: Stable with minor change
-- 7-9: Improving with visible investment
-- 10: Dramatic positive transformation
+Then on a new line at the very end, output ONLY this JSON with no other text after it:
+{"score": 7, "label": "Active Improvement", "justification": "One sentence of evidence."}
 
-Return your score as a JSON object at the very end of your response in this exact format:
-{"score": 7, "label": "Active Improvement", "justification": "Significant new construction and retail infill visible between 2015 and 2023."}
+Score labels: 1-2 "Significant Decline", 3 "Gradual Decline", 4-5 "Mostly Stable", 6 "Early Improvement Signs", 7-8 "Active Improvement", 9 "Strong Growth", 10 "Dramatic Transformation"
 
-Score labels to use:
-1-2: "Significant Decline"
-3: "Gradual Decline"
-4-5: "Mostly Stable"
-6: "Early Improvement Signs"
-7-8: "Active Improvement"
-9: "Strong Growth"
-10: "Dramatic Transformation"
-
-Be honest and evidence-based. Only comment on what you can actually see in the images. Do not speculate beyond the visual evidence.`,
+Be concise. Each section must be 2-4 sentences maximum.`,
         messages: [
           {
             role: 'user',
@@ -127,7 +110,7 @@ Be honest and evidence-based. Only comment on what you can actually see in the i
     const anthropicData = await anthropicRes.json();
     const fullText = anthropicData.content[0].text;
 
-    // Step 4: Parse the score JSON from the end of the response
+    // Parse the score JSON from the end of the response
     let score = { score: 5, label: 'Unable to score', justification: 'Analysis unavailable.' };
     try {
       const jsonMatch = fullText.match(/\{[^{}]*"score"[^{}]*\}/);
@@ -138,7 +121,7 @@ Be honest and evidence-based. Only comment on what you can actually see in the i
       console.error('Score parsing failed:', e);
     }
 
-    // Step 5: Clean the analysis text (remove the JSON from the end)
+    // Remove the JSON from the analysis text
     const analysisText = fullText.replace(/\{[^{}]*"score"[^{}]*\}/, '').trim();
 
     return Response.json({
